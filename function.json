@@ -1,0 +1,142 @@
+{
+  "type": "scalar.function",
+  "input_maps": null,
+  "description": "Scores how well a commit message follows best practices. Returns a score from 0 to 1 based on clarity, format, and accuracy.",
+  "changelog": null,
+  "input_schema": {
+    "anyOf": [
+      {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "The commit message to evaluate"
+          }
+        },
+        "required": [
+          "message"
+        ]
+      },
+      {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "The commit message to evaluate"
+          },
+          "diff": {
+            "type": "string",
+            "description": "The actual code diff for accuracy checking"
+          }
+        },
+        "required": [
+          "message",
+          "diff"
+        ]
+      },
+      {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "The commit message to evaluate"
+          },
+          "context": {
+            "type": "string",
+            "description": "Additional context about the change"
+          }
+        },
+        "required": [
+          "message",
+          "context"
+        ]
+      },
+      {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "The commit message to evaluate"
+          },
+          "diff": {
+            "type": "string",
+            "description": "The actual code diff for accuracy checking"
+          },
+          "context": {
+            "type": "string",
+            "description": "Additional context about the change"
+          }
+        },
+        "required": [
+          "message",
+          "diff",
+          "context"
+        ]
+      }
+    ]
+  },
+  "tasks": [
+    {
+      "type": "vector.completion",
+      "skip": null,
+      "map": null,
+      "messages": [
+        {
+          "role": "system",
+          "content": "You are an expert at evaluating git commit messages. Evaluate commit messages based on: imperative mood ('Add' not 'Added'), subject line length (≤72 chars ideal), specificity (not vague like 'fix' or 'update'), explaining the 'why' not just 'what', and accuracy to any provided diff or context."
+        },
+        {
+          "role": "user",
+          "content": [
+            {
+              "type": "text",
+              "text": {
+                "$jmespath": "join('', ['Evaluate this commit message:\\n\\n\"', input.message, '\"'])"
+              }
+            },
+            {
+              "type": "text",
+              "text": {
+                "$jmespath": "if(is_null(input.diff), '', '\\n\\nCode diff:\\n```\\n')"
+              }
+            },
+            {
+              "type": "text",
+              "text": {
+                "$jmespath": "if(is_null(input.diff), '', input.diff)"
+              }
+            },
+            {
+              "type": "text",
+              "text": {
+                "$jmespath": "if(is_null(input.diff), '', '\\n```')"
+              }
+            },
+            {
+              "type": "text",
+              "text": {
+                "$jmespath": "if(is_null(input.context), '', '\\n\\nContext: ')"
+              }
+            },
+            {
+              "type": "text",
+              "text": {
+                "$jmespath": "if(is_null(input.context), '', input.context)"
+              }
+            }
+          ]
+        }
+      ],
+      "tools": null,
+      "responses": [
+        "EXCELLENT - Clear, concise, imperative mood, explains why, accurately describes changes.",
+        "GOOD - Solid message with minor issues (slightly long, could explain why more).",
+        "ACCEPTABLE - Gets the job done but could be improved (vague terms, missing context, wrong tense).",
+        "POOR - Vague, unclear, misleading, badly formatted, or inaccurate."
+      ]
+    }
+  ],
+  "output": {
+    "$jmespath": "add(tasks[0].scores[0], add(multiply(tasks[0].scores[1], `0.67`), multiply(tasks[0].scores[2], `0.33`)))"
+  }
+}
