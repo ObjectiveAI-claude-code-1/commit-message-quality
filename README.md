@@ -1,73 +1,96 @@
-# ObjectiveAI Function Sandbox
+# commit-message-quality
 
-A sandbox environment for creating ObjectiveAI Functions and Profiles.
+An [ObjectiveAI](https://objective-ai.io) function that scores how well a commit message follows best practices.
 
-[GitHub](https://github.com/ObjectiveAI/objectiveai) | [Website](https://objective-ai.io) | [Discord](https://discord.gg/gbNFHensby)
+## Usage
 
-## What is this?
+```typescript
+import { ObjectiveAI, Functions } from "objectiveai";
 
-This repository is a template workspace for inventing new ObjectiveAI **Functions** (scoring/ranking pipelines) and **Profiles** (learned weights).
+const client = new ObjectiveAI();
 
-It includes a **Claude Code skill** (`~/.claude/skills/invent/SKILL.md`) that guides Claude through the entire process of inventing a new Function from scratch - from studying examples to validating the new Function/Profile pair to publishing on GitHub.
+const result = await Functions.Executions.remoteFunctionRemoteProfileCreate(client, {
+  function: {
+    owner: "ObjectiveAI-claude-code-1",
+    repository: "commit-message-quality",
+  },
+  profile: {
+    owner: "ObjectiveAI-claude-code-1",
+    repository: "commit-message-quality",
+  },
+  input: {
+    message: "Add user authentication via OAuth2 to prevent unauthorized API access"
+  }
+});
 
-The sandbox provides all the tooling needed to:
+console.log(result.output); // 0.0 - 1.0
+```
 
-- Define a Function and Profile in TypeScript
-- Validate against the ObjectiveAI schema
-- Test with example inputs
-- Export to `function.json` and `profile.json`
-- Publish to GitHub and the ObjectiveAI index
+## Input
 
-## Quick Start
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `message` | string | Yes | The commit message to evaluate |
+| `diff` | string | No | The actual code diff for accuracy checking |
+| `context` | string | No | Additional context about the change |
+
+### Examples
+
+```typescript
+// Message only
+{ message: "Fix null pointer exception in PaymentService by adding guard clause" }
+
+// With diff for accuracy checking
+{
+  message: "Fix race condition in session cleanup by adding mutex lock",
+  diff: "- sessions.delete(id)\n+ mutex.Lock()\n+ defer mutex.Unlock()\n+ sessions.delete(id)"
+}
+
+// With context
+{
+  message: "Update login form validation",
+  context: "Adding email format validation to the login form"
+}
+```
+
+## Output
+
+Returns a scalar score in the range `[0, 1]`:
+
+| Score | Rating | Description |
+|-------|--------|-------------|
+| 1.0 | Excellent | Clear, concise, imperative mood, explains "why", accurately describes changes |
+| 0.67 | Good | Solid message with minor issues (slightly long, could explain "why" more) |
+| 0.33 | Acceptable | Gets the job done but could be improved (vague terms, missing context, wrong tense) |
+| 0.0 | Poor | Vague, unclear, misleading, badly formatted, or inaccurate |
+
+The output is computed as: `scores[0] + scores[1]*0.67 + scores[2]*0.33`
+
+## Evaluation Criteria
+
+- **Imperative mood** - "Add" not "Added", "Fix" not "Fixed"
+- **Subject line length** - Ideally ≤72 characters
+- **Specificity** - Not vague like "fix", "update", "wip", "asdfasdf"
+- **Explains the "why"** - Not just what changed, but why it matters
+- **Accuracy** - If diff/context provided, message should match the actual changes
+
+## Ensemble
+
+Uses 5 LLMs with equal weights:
+- `openai/gpt-4.1-nano`
+- `google/gemini-2.5-flash-lite`
+- `x-ai/grok-4.1-fast`
+- `openai/gpt-4o-mini`
+- `deepseek/deepseek-v3.2`
+
+## Development
 
 ```bash
-npm install
-npm run init      # Fetch example functions/profiles
-npm run build     # Validate, test, and export
-npm run publish   # (Optional) Index on ObjectiveAI
+npm install           # Install dependencies
+npm run build         # Build and run all tests
+npm run test          # Run validation tests only
 ```
 
-## Project Structure
+## License
 
-```
-├── defs.ts           # Define your Function, Profile, and ExampleInputs here
-├── main.ts           # Scratchpad for experiments (npm run start)
-├── build.ts          # Exports Function/Profile to JSON (readonly)
-├── test.ts           # Validates and tests everything (readonly)
-├── init.ts           # Fetches example functions/profiles (readonly)
-├── publish.ts        # Publishes to ObjectiveAI index (readonly)
-├── example_input.ts  # ExampleInput type definition (readonly)
-├── function.json     # Generated Function output
-├── profile.json      # Generated Profile output
-├── examples/         # Downloaded example functions/profiles
-└── objectiveai/      # ObjectiveAI SDK (git submodule)
-```
-
-## Workflow
-
-1. **Study examples** - Run `npm run init` to download example functions/profiles, then explore `examples/`
-2. **Define your Function** - Edit `defs.ts` to create your Function with tasks and output expressions
-3. **Define your Profile** - Add a Profile that specifies ensembles and weights for each task
-4. **Create ExampleInputs** - Add 10 diverse test inputs covering edge cases
-5. **Build and test** - Run `npm run build` to validate and export
-6. **Publish** - Push to GitHub, optionally run `npm run publish` to index
-
-## Scripts
-
-| Command | Description |
-|---------|-------------|
-| `npm run start` | Run the scratchpad (`main.ts`) for experiments |
-| `npm run init` | Fetch example functions/profiles into `examples/` |
-| `npm run build` | Validate, test, and export to JSON |
-| `npm run test` | Run validation tests only |
-| `npm run publish` | Publish to ObjectiveAI index (requires API key) |
-
-## Using with Claude Code
-
-This sandbox includes a skill for Claude Code. To have Claude invent a new Function:
-
-1. Open this workspace in Claude Code
-2. Ask Claude to invent a new function (the skill will guide the process)
-3. Claude will study examples, propose ideas, and implement the Function/Profile
-
-The skill supports both **collaborative** (back-and-forth) and **autonomous** modes.
+MIT
